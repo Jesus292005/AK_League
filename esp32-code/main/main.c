@@ -11,7 +11,8 @@
 #define WIFI_SSID "Totalplay-70AF"
 #define WIFI_PASS "70AF954By6BfW28a"
 #define BROKER_URL "mqtt://192.168.100.53"
-#define SENSOR_PIN 4
+#define SENSOR_PIN_1 4
+#define SEONSOR_PIN_2 5
 #define COOLDOWN_MS 3000
 
 esp_mqtt_client_handle_t client;
@@ -43,9 +44,13 @@ void init_wifi()
 // Tarea principal que lee el sensor
 void sensor_task(void *pvParameters)
 {
-    gpio_reset_pin(SENSOR_PIN);
-    gpio_set_direction(SENSOR_PIN, GPIO_MODE_INPUT);
-    gpio_set_pull_mode(SENSOR_PIN, GPIO_PULLUP_ONLY);
+    gpio_reset_pin(SENSOR_PIN_1);
+    gpio_set_direction(SENSOR_PIN_1, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(SENSOR_PIN_1, GPIO_PULLUP_ONLY);
+
+    gpio_reset_pin(SENSOR_PIN_2);
+    gpio_set_direction(SENSOR_PIN_2, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(SENSOR_PIN_2, GPIO_PULLUP_ONLY);
 
     printf("Sensor listo. Esperando goles...\n");
 
@@ -56,24 +61,22 @@ void sensor_task(void *pvParameters)
         gpio_reset_pin(2);
         gpio_set_direction(2, GPIO_MODE_OUTPUT);
 
-        if (estado_sensor == 0)
-        {
-            gpio_set_level(2, 1);
-            printf("¡GOL DETECTADO! Enviando a Mosquitto...\n");
-            char json_payload[100];
-            sprintf(json_payload, "{\"pattern\":\"akl/cancha/goles\",\"data\":\"gol_azul\"}");
+        while (1) {
+        int estado_1 = gpio_get_level(SENSOR_PIN_1);
+        int estado_2 = gpio_get_level(SENSOR_PIN_2);
 
-            // Publicamos el JSON en lugar del texto plano
+        // Si cualquiera de los dos sensores lee 0, es gol
+        if (estado_1 == 0 || estado_2 == 0) {
+            
+            char json_payload[100];
+            "
+            sprintf(json_payload, "{\"pattern\":\"akl/cancha/goles\",\"data\":\"gol_azul\"}");
             esp_mqtt_client_publish(client, "akl/cancha/goles", json_payload, 0, 1, 0);
 
-            // Filtro anti-rebote: esperar para no mandar 50 goles seguidos
-            printf("Cooldown activado (%d ms)...\n", COOLDOWN_MS);
+            // El delay detiene la lectura de AMBOS sensores
             vTaskDelay(COOLDOWN_MS / portTICK_PERIOD_MS);
-            gpio_set_level(2, 0);
-            printf("Listo para otro gol.\n");
         }
-
-        // Pequeño delay para no saturar el procesador
+        
         vTaskDelay(50 / portTICK_PERIOD_MS);
     }
 }
