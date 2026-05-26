@@ -1,121 +1,64 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useEffect, useState } from 'react'
+import { io } from 'socket.io-client'
 import './App.css'
 
+// Nos conectamos al servidor de NestJS (ajusta la IP si tu back corre en otra dirección)
+const socket = io('http://localhost:3000')
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [golesAzul, setGolesAzul] = useState(0)
+  const [golesNaranja, setGolesNaranja] = useState(0)
+
+  useEffect(() => {
+    // Escuchamos el evento exacto que manda nuestro AppGateway en NestJS
+    socket.on('nuevo_gol', (equipo) => {
+      console.log("Notificación de gol recibida:", equipo);
+      
+      if (equipo === 'gol_azul') {
+        setGolesAzul((prev) => prev + 1)
+      } else if (equipo === 'gol_naranja') {
+        setGolesNaranja((prev) => prev + 1)
+      }
+    })
+
+    // Limpiamos la conexión si el componente se desmonta
+    return () => {
+      socket.off('nuevo_gol')
+    }
+  }, [])
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div style={{ textAlign: 'center', fontFamily: 'sans-serif', marginTop: '50px' }}>
+      <h1>🏎️ Adrian Kong League ⚽</h1>
+      
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '50px', marginTop: '40px' }}>
+        
+        {/* Tarjeta Equipo Azul */}
+        <div style={{ 
+          backgroundColor: '#1E3A8A', 
+          color: 'white', 
+          padding: '40px', 
+          borderRadius: '15px',
+          minWidth: '200px'
+        }}>
+          <h2>Equipo Azul</h2>
+          <p style={{ fontSize: '72px', margin: '0', fontWeight: 'bold' }}>{golesAzul}</p>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+        {/* Tarjeta Equipo Naranja */}
+        <div style={{ 
+          backgroundColor: '#EA580C', 
+          color: 'white', 
+          padding: '40px', 
+          borderRadius: '15px',
+          minWidth: '200px'
+        }}>
+          <h2>Equipo Naranja</h2>
+          <p style={{ fontSize: '72px', margin: '0', fontWeight: 'bold' }}>{golesNaranja}</p>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      </div>
+    </div>
   )
 }
 
