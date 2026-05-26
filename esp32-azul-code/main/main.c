@@ -12,7 +12,7 @@
 #define WIFI_PASS "70AF954By6BfW28a"
 #define BROKER_URL "mqtt://192.168.100.53"
 #define SENSOR_PIN_1 4
-#define SEONSOR_PIN_2 5
+#define SENSOR_PIN_2 5
 #define COOLDOWN_MS 3000
 
 esp_mqtt_client_handle_t client;
@@ -44,6 +44,7 @@ void init_wifi()
 // Tarea principal que lee el sensor
 void sensor_task(void *pvParameters)
 {
+    // 1. Configuración de los pines de los sensores como entrada
     gpio_reset_pin(SENSOR_PIN_1);
     gpio_set_direction(SENSOR_PIN_1, GPIO_MODE_INPUT);
     gpio_set_pull_mode(SENSOR_PIN_1, GPIO_PULLUP_ONLY);
@@ -52,31 +53,45 @@ void sensor_task(void *pvParameters)
     gpio_set_direction(SENSOR_PIN_2, GPIO_MODE_INPUT);
     gpio_set_pull_mode(SENSOR_PIN_2, GPIO_PULLUP_ONLY);
 
-    printf("Sensor listo. Esperando goles...\n");
+    // 2. Configuración del pin del LED integrado como salida
+    gpio_reset_pin(2);
+    gpio_set_direction(2, GPIO_MODE_OUTPUT);
+    gpio_set_level(2, 0); // Asegurar que inicie apagado
+
+    printf("Sensores listos en pines %d y %d. Esperando lecturas...\n", SENSOR_PIN_1, SENSOR_PIN_2);
 
     while (1)
     {
-        int estado_sensor = gpio_get_level(SENSOR_PIN);
-
-        gpio_reset_pin(2);
-        gpio_set_direction(2, GPIO_MODE_OUTPUT);
-
-        while (1) {
+        // 3. Leer el estado actual de ambos sensores
         int estado_1 = gpio_get_level(SENSOR_PIN_1);
         int estado_2 = gpio_get_level(SENSOR_PIN_2);
 
-        // Si cualquiera de los dos sensores lee 0, es gol
-        if (estado_1 == 0 || estado_2 == 0) {
+        // 4. Evaluar si alguno de los dos sensores detecta un objeto (asumiendo lógica negada)
+        if (estado_1 == 0 || estado_2 == 0)
+        {
+            // Encender el LED para indicar detección
+            gpio_set_level(2, 1);
+            printf("Gol detectado. Construyendo paquete MQTT...\n");
             
+            // Construir el JSON con el formato requerido por NestJS
             char json_payload[100];
-            "
+            
+            // IMPORTANTE: En el código del segundo ESP32, cambia "gol_azul" por "gol_naranja"
             sprintf(json_payload, "{\"pattern\":\"akl/cancha/goles\",\"data\":\"gol_azul\"}");
+
+            // Publicar el mensaje en el broker
             esp_mqtt_client_publish(client, "akl/cancha/goles", json_payload, 0, 1, 0);
 
-            // El delay detiene la lectura de AMBOS sensores
+            // Detener la tarea durante el tiempo de cooldown para evitar lecturas múltiples
+            printf("Cooldown activado (%d ms)...\n", COOLDOWN_MS);
             vTaskDelay(COOLDOWN_MS / portTICK_PERIOD_MS);
+            
+            // Apagar el LED tras concluir el cooldown
+            gpio_set_level(2, 0);
+            printf("Sistema listo para nueva lectura.\n");
         }
-        
+
+        // 5. Pequeño retardo obligatorio para liberar el procesador (Watchdog)
         vTaskDelay(50 / portTICK_PERIOD_MS);
     }
 }
