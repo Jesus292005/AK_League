@@ -8,23 +8,24 @@
 #include "nvs_flash.h"
 #include "mqtt_client.h"
 
-#define WIFI_SSID      ""
-#define WIFI_PASS      ""
-#define BROKER_URL     "" 
-#define SENSOR_PIN     4                    
-#define COOLDOWN_MS    3000
+#define WIFI_SSID "Totalplay-70AF"
+#define WIFI_PASS "70AF954By6BfW28a"
+#define BROKER_URL "mqtt://192.168.100.53"
+#define SENSOR_PIN 4
+#define COOLDOWN_MS 3000
 
 esp_mqtt_client_handle_t client;
 
 // Función para inicializar el Wi-Fi rápido
-void init_wifi() {
+void init_wifi()
+{
     nvs_flash_init();
     esp_netif_init();
     esp_event_loop_create_default();
     esp_netif_create_default_wifi_sta();
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     esp_wifi_init(&cfg);
-    
+
     wifi_config_t wifi_config = {
         .sta = {
             .ssid = WIFI_SSID,
@@ -40,39 +41,45 @@ void init_wifi() {
 }
 
 // Tarea principal que lee el sensor
-void sensor_task(void *pvParameters) {
+void sensor_task(void *pvParameters)
+{
     gpio_reset_pin(SENSOR_PIN);
     gpio_set_direction(SENSOR_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(SENSOR_PIN, GPIO_PULLUP_ONLY);
 
     printf("Sensor listo. Esperando goles...\n");
 
-    while (1) {
+    while (1)
+    {
         int estado_sensor = gpio_get_level(SENSOR_PIN);
 
         gpio_reset_pin(2);
         gpio_set_direction(2, GPIO_MODE_OUTPUT);
 
-        if (estado_sensor == 0) {
+        if (estado_sensor == 0)
+        {
             gpio_set_level(2, 1);
             printf("¡GOL DETECTADO! Enviando a Mosquitto...\n");
-            
-            // Publicar el mensaje en MQTT (Topic, Mensaje, Longitud, QoS, Retain)
-            esp_mqtt_client_publish(client, "akl/cancha/goles", "gol_azul", 0, 1, 0);
-            
+            char json_payload[100];
+            sprintf(json_payload, "{\"pattern\":\"akl/cancha/goles\",\"data\":\"gol_azul\"}");
+
+            // Publicamos el JSON en lugar del texto plano
+            esp_mqtt_client_publish(client, "akl/cancha/goles", json_payload, 0, 1, 0);
+
             // Filtro anti-rebote: esperar para no mandar 50 goles seguidos
             printf("Cooldown activado (%d ms)...\n", COOLDOWN_MS);
             vTaskDelay(COOLDOWN_MS / portTICK_PERIOD_MS);
             gpio_set_level(2, 0);
             printf("Listo para otro gol.\n");
         }
-        
+
         // Pequeño delay para no saturar el procesador
-        vTaskDelay(50 / portTICK_PERIOD_MS); 
+        vTaskDelay(50 / portTICK_PERIOD_MS);
     }
 }
 
-void app_main(void) {
+void app_main(void)
+{
 
     init_wifi();
 
@@ -81,9 +88,8 @@ void app_main(void) {
     };
     client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_start(client);
-    
+
     vTaskDelay(2000 / portTICK_PERIOD_MS);
 
     xTaskCreate(sensor_task, "sensor_task", 2048, NULL, 5, NULL);
 }
-
