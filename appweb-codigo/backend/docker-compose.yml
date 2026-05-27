@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    container_name: akl_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: akl_db
+    ports:
+      - "5433:5432"
+    restart: always
