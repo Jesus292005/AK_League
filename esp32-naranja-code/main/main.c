@@ -14,6 +14,7 @@
 #define SENSOR_PIN_1 4
 #define SENSOR_PIN_2 5
 #define COOLDOWN_MS 3000
+#define LED_PORTERIA_PIN 25
 
 esp_mqtt_client_handle_t client;
 
@@ -57,6 +58,11 @@ void sensor_task(void *pvParameters)
     gpio_reset_pin(2);
     gpio_set_direction(2, GPIO_MODE_OUTPUT);
     gpio_set_level(2, 0); // Asegurar que inicie apagado
+    
+    // Configuración del pin de la portería como salida
+    gpio_reset_pin(LED_PORTERIA_PIN);
+    gpio_set_direction(LED_PORTERIA_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(LED_PORTERIA_PIN, 0);
 
     printf("Sensores listos en pines %d y %d. Esperando lecturas...\n", SENSOR_PIN_1, SENSOR_PIN_2);
 
@@ -76,18 +82,28 @@ void sensor_task(void *pvParameters)
             // Construir el JSON con el formato requerido por NestJS
             char json_payload[100];
             
-            // IMPORTANTE: En el código del segundo ESP32, cambia "gol_azul" por "gol_naranja"
             sprintf(json_payload, "{\"pattern\":\"akl/cancha/goles\",\"data\":\"gol_naranja\"}");
 
             // Publicar el mensaje en el broker
             esp_mqtt_client_publish(client, "akl/cancha/goles", json_payload, 0, 1, 0);
 
-            // Detener la tarea durante el tiempo de cooldown para evitar lecturas múltiples
-            printf("Cooldown activado (%d ms)...\n", COOLDOWN_MS);
-            vTaskDelay(COOLDOWN_MS / portTICK_PERIOD_MS);
+            // Efecto de parpadeo por 5 segundos (funciona como cooldown)
+            for (int i = 0; i < 10; i++) 
+            {
+                // Prender LEDs
+                gpio_set_level(2, 1);
+                gpio_set_level(LED_PORTERIA_PIN, 1);
+                vTaskDelay(250 / portTICK_PERIOD_MS); // Espera 250ms prendido
+                
+                // Apagar LEDs
+                gpio_set_level(2, 0);
+                gpio_set_level(LED_PORTERIA_PIN, 0);
+                vTaskDelay(250 / portTICK_PERIOD_MS); // Espera 250ms apagado
+            }
             
             // Apagar el LED tras concluir el cooldown
             gpio_set_level(2, 0);
+            gpio_set_level(LED_PORTERIA_PIN, 0);
             printf("Sistema listo para nueva lectura.\n");
         }
 
