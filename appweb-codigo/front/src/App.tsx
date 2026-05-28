@@ -3,12 +3,11 @@ import { io } from 'socket.io-client'
 import './App.css'
 
 const socket = io('http://localhost:3000')
-
 const TIEMPO_INICIAL_SEG = 10; 
 
 function App() {
   const [golesAzul, setGolesAzul] = useState(0)
-  const [golesNaranja, setGolesNaranja] = useState(0)
+  const [golesRed, setGolesRed] = useState(0)
   const [estadoPartido, setEstadoPartido] = useState<'detenido' | 'jugando' | 'pausado'>('detenido')
   
   const [tiempoRestante, setTiempoRestante] = useState(TIEMPO_INICIAL_SEG)
@@ -21,7 +20,9 @@ function App() {
   const [ganador, setGanador] = useState<string | null>(null)
   const [mostrarModal, setMostrarModal] = useState(false)
 
-  // Control del Cronómetro
+  const [animateAzul, setAnimateAzul] = useState(false)
+  const [animateRed, setAnimateRed] = useState(false)
+
   useEffect(() => {
     let intervalo: number | undefined;
 
@@ -38,36 +39,40 @@ function App() {
     return () => clearInterval(intervalo);
   }, [estadoPartido, isOvertime]);
 
-  // Verificación de fin de tiempo regular
   useEffect(() => {
     if (tiempoRestante === 0 && !isOvertime && estadoPartido === 'jugando') {
-      if (golesAzul === golesNaranja) {
+      if (golesAzul === golesRed) {
         setIsOvertime(true);
       } else {
-        declararGanador(golesAzul > golesNaranja ? 'Azul' : 'Naranja');
+        declararGanador(golesAzul > golesRed ? 'Azul' : 'Rojo');
       }
     }
-  }, [tiempoRestante, estadoPartido, golesAzul, golesNaranja, isOvertime]);
+  }, [tiempoRestante, estadoPartido, golesAzul, golesRed, isOvertime]);
 
-  // Procesamiento del flujo de goles
   useEffect(() => {
     if (ultimoGol) {
-      const nomEquipo = ultimoGol === 'gol_azul' ? 'Azul' : 'Naranja';
+      const nomEquipo = ultimoGol === 'gol_azul' ? 'Azul' : 'Rojo';
       const tiempoAnotacion = isOvertime ? `+${formatearTiempo(tiempoExtra)}` : formatearTiempo(tiempoRestante);
       
-      // Agregar al inicio de la lista
       setHistorialGoles(prev => [{ equipo: nomEquipo, tiempo: tiempoAnotacion }, ...prev]);
       
-      if (ultimoGol === 'gol_azul') setGolesAzul(prev => prev + 1);
-      else setGolesNaranja(prev => prev + 1);
+      if (ultimoGol === 'gol_azul') {
+        setGolesAzul(prev => prev + 1);
+        setAnimateAzul(true);
+        setTimeout(() => setAnimateAzul(false), 600); 
+      } else {
+        setGolesRed(prev => prev + 1);
+        setAnimateRed(true);
+        setTimeout(() => setAnimateRed(false), 600);
+      }
 
       if (isOvertime) {
         declararGanador(nomEquipo);
       } else {
-        setEstadoPartido('pausado');
+        setEstadoPartido('pausado'); 
       }
       
-      setUltimoGol(null);
+      setUltimoGol(null); 
     }
   }, [ultimoGol, isOvertime, tiempoExtra, tiempoRestante]);
 
@@ -81,7 +86,7 @@ function App() {
   const declararGanador = async (equipoGanador: string) => {
     await fetch('http://localhost:3000/finalizar', { 
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }, // <-- Línea crítica
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ganador: equipoGanador })
     });
     setEstadoPartido('detenido');
@@ -93,7 +98,7 @@ function App() {
     await fetch('http://localhost:3000/iniciar', { method: 'POST' });
     setEstadoPartido('jugando');
     setGolesAzul(0);
-    setGolesNaranja(0);
+    setGolesRed(0);
     setTiempoRestante(TIEMPO_INICIAL_SEG);
     setIsOvertime(false);
     setTiempoExtra(0);
@@ -113,7 +118,7 @@ function App() {
   }
 
   const finalizarPartido = async () => {
-    const lider = golesAzul > golesNaranja ? 'Azul' : golesAzul < golesNaranja ? 'Naranja' : 'Empate';
+    const lider = golesAzul > golesRed ? 'Azul' : golesAzul < golesRed ? 'Rojo' : 'Empate';
     declararGanador(lider);
   }
 
@@ -124,120 +129,80 @@ function App() {
   }
 
   return (
-    <div style={{ textAlign: 'center', fontFamily: 'sans-serif', marginTop: '50px', position: 'relative' }}>
+    <div className="dashboard-container">
       
-      {/* Modal de Ganador */}
       {mostrarModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', 
-          backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', 
-          alignItems: 'center', zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'white', padding: '50px', borderRadius: '15px', textAlign: 'center'
-          }}>
-            <h1 style={{ fontSize: '48px', margin: '0 0 20px 0' }}>Partido Finalizado</h1>
-            <h2 style={{ fontSize: '36px', color: ganador === 'Azul' ? '#1E3A8A' : ganador === 'Naranja' ? '#EA580C' : '#333' }}>
-              {ganador === 'Empate' ? 'El partido terminó en empate' : `Ganador: Equipo ${ganador}`}
+        <div className="winner-overlay">
+          <div className={`winner-modal ${ganador?.toLowerCase() === 'rojo' ? 'red' : ganador?.toLowerCase()}`}>
+            <h1 className="modal-title">Partido Finalizado</h1>
+            <h2 className="winner-team-announcement">
+              {ganador === 'Empate' ? '¡Empate!' : `Victoria ${ganador}`}
             </h2>
-            <button onClick={() => setMostrarModal(false)} style={{
-              marginTop: '30px', padding: '15px 30px', fontSize: '18px', cursor: 'pointer',
-              backgroundColor: '#333', color: 'white', border: 'none', borderRadius: '5px'
-            }}>
-              Cerrar
+            <button className="btn-close-modal" onClick={() => setMostrarModal(false)}>
+              Continuar
             </button>
           </div>
         </div>
       )}
 
-      <h1>Adrian Kong League</h1>
+      <h1 className="main-title">Adrian Kong League</h1>
       
-      {/* Indicador de Estado del Partido */}
-      {estadoPartido === 'detenido' && ganador && (
-        <h2 style={{ color: '#d32f2f' }}>Partido Finalizado - Ganador: Equipo {ganador}</h2>
-      )}
-      
-      {isOvertime && (
-        <h3 style={{ color: '#d32f2f', textTransform: 'uppercase', letterSpacing: '2px' }}>Tiempo Extra</h3>
+      {isOvertime ? (
+        <h3 className="overtime-badge">Tiempo Extra / Gol de Oro</h3>
+      ) : (
+        <div className="status-badge">
+          {estadoPartido === 'detenido' && 'Esperando Inicio'}
+          {estadoPartido === 'jugando' && 'En juego'}
+          {estadoPartido === 'pausado' && 'Partido Pausado'}
+        </div>
       )}
 
-      <div style={{ 
-        fontSize: '80px', 
-        fontWeight: 'bold', 
-        fontFamily: 'monospace',
-        color: isOvertime || tiempoRestante <= 60 ? '#d32f2f' : '#333', 
-        margin: '10px 0' 
-      }}>
-        {isOvertime ? `+${formatearTiempo(tiempoExtra)}` : formatearTiempo(tiempoRestante)}
+      <div className="scoreboard-hud">
+        <div className="team-panel blue">
+          <h2 className="team-name">Azul</h2>
+          <p className={`score-number ${animateAzul ? 'animate-score' : ''}`}>
+            {golesAzul}
+          </p>
+        </div>
+
+        <div className="timer-panel">
+          <div className={`timer-display ${isOvertime || tiempoRestante <= 60 ? 'critical' : ''}`}>
+            {isOvertime ? `+${formatearTiempo(tiempoExtra)}` : formatearTiempo(tiempoRestante)}
+          </div>
+        </div>
+
+        <div className="team-panel red">
+          <h2 className="team-name">Rojo</h2>
+          <p className={`score-number ${animateRed ? 'animate-score' : ''}`}>
+            {golesRed}
+          </p>
+        </div>
       </div>
       
-      {/* Controles HTTP */}
-      <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'center', gap: '15px' }}>
+      <div className="controls-panel">
         {estadoPartido === 'detenido' && (
-          <button onClick={iniciarPartido} style={{ padding: '10px 20px', fontSize: '16px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-            Iniciar Partido
-          </button>
+          <button onClick={iniciarPartido} className="btn btn-start">Iniciar Partido</button>
         )}
         {estadoPartido === 'jugando' && (
-          <button onClick={pausarPartido} style={{ padding: '10px 20px', fontSize: '16px', backgroundColor: '#FF9800', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-            Pausar Partido
-          </button>
+          <button onClick={pausarPartido} className="btn btn-pause">Pausar</button>
         )}
         {estadoPartido === 'pausado' && (
-          <button onClick={reanudarPartido} style={{ padding: '10px 20px', fontSize: '16px', backgroundColor: '#2196F3', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-            Reanudar Partido
-          </button>
+          <button onClick={reanudarPartido} className="btn btn-resume">Reanudar</button>
         )}
         {(estadoPartido === 'jugando' || estadoPartido === 'pausado') && (
-          <button onClick={finalizarPartido} style={{ padding: '10px 20px', fontSize: '16px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-            Finalizar Partido
-          </button>
+          <button onClick={finalizarPartido} className="btn btn-end">Terminar</button>
         )}
       </div>
 
-      {/* Marcador Principal */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '50px', marginTop: '20px' }}>
-        <div style={{ backgroundColor: '#1E3A8A', color: 'white', padding: '40px', borderRadius: '15px', minWidth: '200px' }}>
-          <h2>Equipo Azul</h2>
-          <p style={{ fontSize: '72px', margin: '0', fontWeight: 'bold' }}>{golesAzul}</p>
-        </div>
-        <div style={{ backgroundColor: '#EA580C', color: 'white', padding: '40px', borderRadius: '15px', minWidth: '200px' }}>
-          <h2>Equipo Naranja</h2>
-          <p style={{ fontSize: '72px', margin: '0', fontWeight: 'bold' }}>{golesNaranja}</p>
-        </div>
-      </div>
-
-      {/* Tarjeta de Historial de Goles */}
       {historialGoles.length > 0 && (
-        <div style={{ 
-          marginTop: '40px', 
-          width: '500px', 
-          marginLeft: 'auto', 
-          marginRight: 'auto', 
-          backgroundColor: '#f5f5f5', 
-          borderRadius: '15px', 
-          padding: '20px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-        }}>
-          <h3 style={{ borderBottom: '2px solid #ddd', paddingBottom: '10px', color: '#555' }}>Historial de Anotaciones</h3>
-          
-          <div style={{ maxHeight: '250px', overflowY: 'auto', paddingRight: '10px' }}>
+        <div className="history-card">
+          <h3 className="history-title">Historial del Partido</h3>
+          <div className="history-list">
             {historialGoles.map((gol, index) => (
-              <div key={index} style={{ 
-                display: 'flex', 
-                justifyContent: gol.equipo === 'Azul' ? 'flex-start' : 'flex-end',
-                marginBottom: '15px'
-              }}>
-                <div style={{ 
-                  backgroundColor: gol.equipo === 'Azul' ? '#1E3A8A' : '#EA580C',
-                  color: 'white',
-                  padding: '10px 20px',
-                  borderRadius: '20px',
-                  fontWeight: 'bold',
-                  fontSize: '18px'
-                }}>
-                  {gol.tiempo}
-                </div>
+              <div key={index} className={`goal-feed-item ${gol.equipo.toLowerCase() === 'rojo' ? 'red' : gol.equipo.toLowerCase()}`}>
+                {gol.equipo === 'Azul' && <span className="feed-time">{gol.tiempo}</span>}
+                <span>¡Gol del Equipo {gol.equipo}!</span>
+                {gol.equipo === 'Rojo' && <span className="feed-time">{gol.tiempo}</span>}
               </div>
             ))}
           </div>
