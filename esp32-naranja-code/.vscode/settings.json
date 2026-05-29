@@ -14,6 +14,6 @@
     "--query-driver=**",
     "--compile-commands-dir=c:\\Users\\Prestige\\Desktop\\Universidad\\6to Semestre\\Internet de las Cosas\\proyecto-final\\esp32-code\\build"
   ],
-  "idf.portWin": "COM4",
+  "idf.portWin": "COM3",
   "idf.flashType": "UART"
 }

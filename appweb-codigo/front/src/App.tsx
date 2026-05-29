@@ -3,7 +3,7 @@ import { io } from 'socket.io-client'
 import './App.css'
 
 const socket = io('http://localhost:3000')
-const TIEMPO_INICIAL_SEG = 10; 
+const TIEMPO_INICIAL_SEG = 120; 
 
 function App() {
   const [golesAzul, setGolesAzul] = useState(0)
